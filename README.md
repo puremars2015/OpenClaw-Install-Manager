@@ -1,5 +1,13 @@
 # OpenClaw自動安裝程式 for Windows
 
+## 小工具使用方法
+
+在dist資料夾內有已經打包好的單一exe檔案，下載後直接執行即可：
+
+如果直接要用載點下載：
+
+[https://github.com/puremars2015/OpenClaw-Install-Manager/raw/refs/heads/main/dist/OpenClawManager.exe](https://github.com/puremars2015/OpenClaw-Install-Manager/raw/refs/heads/main/dist/OpenClawManager.exe)
+
 ## 介紹
 OpenClaw自動安裝程式是一個用於簡化OpenClaw安裝過程的工具。它提供了一個簡單的界面，讓用戶可以輕鬆地安裝和配置OpenClaw，無需手動處理複雜的安裝步驟。
 
