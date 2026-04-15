@@ -37,6 +37,11 @@ class OpenClawManagerApp(tk.Tk):
         self.gateway_process: subprocess.Popen[str] | None = None
         self.task_running = False
         self.gateway_executable_path: str | None = None
+        self.nanobot_python_path: str | None = None
+        self.gateway_restart_enabled = False
+        self.gateway_restart_delay_ms = 3000
+        self.gateway_command: list[str] | None = None
+        self.is_closing = False
 
         self.status_text = tk.StringVar(value="準備就緒")
         self.port_var = tk.StringVar(value=DEFAULT_PORT)
@@ -47,6 +52,7 @@ class OpenClawManagerApp(tk.Tk):
         self.python_var = tk.StringVar(value="未檢查")
         self.pwsh_var = tk.StringVar(value="未檢查")
         self.openclaw_var = tk.StringVar(value="未檢查")
+        self.nanobot_var = tk.StringVar(value="未檢查")
         self.prefix_var = tk.StringVar(value="未檢查")
         self.requirements_var = tk.StringVar(value="未檢查")
 
@@ -88,17 +94,19 @@ class OpenClawManagerApp(tk.Tk):
         self._add_status_row(env_frame, 3, "Git", self.git_var)
         self._add_status_row(env_frame, 4, "Python", self.python_var)
         self._add_status_row(env_frame, 5, "OpenClaw", self.openclaw_var)
-        self._add_status_row(env_frame, 6, "npm 全域路徑", self.prefix_var)
-        self._add_status_row(env_frame, 7, "需求檢查", self.requirements_var)
+        self._add_status_row(env_frame, 6, "NanoBot", self.nanobot_var)
+        self._add_status_row(env_frame, 7, "npm 全域路徑", self.prefix_var)
+        self._add_status_row(env_frame, 8, "需求檢查", self.requirements_var)
 
         button_bar = ttk.Frame(env_frame)
-        button_bar.grid(row=8, column=0, columnspan=2, sticky="ew", pady=(12, 0))
-        button_bar.columnconfigure((0, 1, 2, 3), weight=1)
+        button_bar.grid(row=9, column=0, columnspan=2, sticky="ew", pady=(12, 0))
+        button_bar.columnconfigure((0, 1, 2, 3, 4), weight=1)
 
         ttk.Button(button_bar, text="重新檢查", command=self.refresh_status).grid(row=0, column=0, sticky="ew", padx=(0, 6))
         ttk.Button(button_bar, text="安裝/更新依賴", command=self.install_prerequisites).grid(row=0, column=1, sticky="ew", padx=6)
         ttk.Button(button_bar, text="安裝 OpenClaw", command=self.install_openclaw).grid(row=0, column=2, sticky="ew", padx=6)
-        ttk.Button(button_bar, text="反安裝 OpenClaw", command=self.uninstall_openclaw).grid(row=0, column=3, sticky="ew", padx=(6, 0))
+        ttk.Button(button_bar, text="安裝 NanoBot", command=self.install_nanobot).grid(row=0, column=3, sticky="ew", padx=6)
+        ttk.Button(button_bar, text="反安裝 OpenClaw", command=self.uninstall_openclaw).grid(row=0, column=4, sticky="ew", padx=(6, 0))
 
         self._add_status_row(runtime_frame, 0, "Gateway 狀態", self.gateway_state_var)
 
@@ -112,15 +120,19 @@ class OpenClawManagerApp(tk.Tk):
 
         ttk.Button(runtime_buttons, text="啟動 Onboard", command=self.run_onboard).grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=(0, 6))
         ttk.Button(runtime_buttons, text="啟動 Gateway", command=self.start_gateway).grid(row=0, column=1, sticky="ew", padx=6, pady=(0, 6))
+        ttk.Button(runtime_buttons, text="啟動 NanoBot", command=self.run_nanobot).grid(row=0, column=3, sticky="ew", padx=(6, 0), pady=(0, 6))
         ttk.Button(runtime_buttons, text="停止 Gateway", command=self.stop_gateway).grid(row=1, column=0, sticky="ew", padx=(0, 6))
         ttk.Button(runtime_buttons, text="開啟 Dashboard", command=self.open_dashboard).grid(row=1, column=1, sticky="ew", padx=6)
         ttk.Button(runtime_buttons, text="執行 Doctor", command=self.run_doctor).grid(row=0, column=2, sticky="ew", padx=6, pady=(0, 6))
+        ttk.Button(runtime_buttons, text="停止 NanoBot", command=self.stop_nanobot).grid(row=1, column=3, sticky="ew", padx=(6, 0))
         ttk.Button(runtime_buttons, text="清除日誌", command=self.clear_log).grid(row=1, column=2, sticky="ew", padx=6)
 
         notes = ttk.Label(
             runtime_frame,
             text=(
                 "Onboard 會開新終端執行 `openclaw onboard --install-daemon`。\n"
+                "NanoBot 會使用專屬 Python 虛擬環境執行 `python -m nanobot`。\n"
+                "Gateway 若異常結束，GUI 會自動偵測並重新啟動。\n"
                 "Dashboard 預設使用 http://127.0.0.1:18789，必要時可修改 Port。"
             ),
             justify="left",
@@ -276,6 +288,88 @@ class OpenClawManagerApp(tk.Tk):
             return [executable]
         return ["openclaw"]
 
+    def _launch_gateway_process(self, command: list[str], *, restart: bool = False) -> bool:
+        try:
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
+            )
+        except FileNotFoundError:
+            if restart:
+                self.log("[錯誤] 自動重啟 Gateway 失敗：找不到 OpenClaw 執行檔")
+                self.after(0, lambda: self.gateway_state_var.set("自動重啟失敗"))
+                return False
+            messagebox.showerror("找不到 OpenClaw", "請先安裝 OpenClaw，或重新執行環境檢查。")
+            return False
+        except Exception as exc:
+            if restart:
+                self.log(f"[錯誤] 自動重啟 Gateway 失敗：{exc}")
+                self.after(0, lambda: self.gateway_state_var.set("自動重啟失敗"))
+                return False
+            messagebox.showerror("無法啟動 Gateway", str(exc))
+            return False
+
+        self.gateway_process = process
+        self.gateway_command = list(command)
+        self.gateway_restart_enabled = True
+
+        action_label = "重新啟動 Gateway" if restart else "啟動 Gateway"
+        state_label = "自動重啟中" if restart else "啟動中"
+        self.log(f"[執行] {action_label}: {' '.join(command)}")
+        self.gateway_state_var.set(state_label)
+
+        threading.Thread(target=self._consume_gateway_output, args=(process,), daemon=True).start()
+        if not self.is_closing:
+            self.after(1200, self.refresh_status)
+        return True
+
+    def _consume_gateway_output(self, process: subprocess.Popen[str]) -> None:
+        assert process.stdout is not None
+        for line in process.stdout:
+            self.log(line.rstrip())
+
+        return_code = process.wait()
+        process_was_current = self.gateway_process is process
+        if process_was_current:
+            self.gateway_process = None
+
+        should_restart = (
+            process_was_current
+            and return_code != 0
+            and self.gateway_restart_enabled
+            and not self.is_closing
+        )
+
+        if should_restart:
+            self.log(f"[警告] Gateway 異常結束，exit code = {return_code}，{self.gateway_restart_delay_ms // 1000} 秒後自動重新啟動")
+            self.after(0, lambda: self.gateway_state_var.set("異常結束，等待重啟"))
+            self.after(self.gateway_restart_delay_ms, self._restart_gateway_if_needed)
+            return
+
+        self.log(f"[資訊] Gateway 已結束，exit code = {return_code}")
+        if not self.is_closing:
+            self.after(0, self.refresh_status)
+
+    def _restart_gateway_if_needed(self) -> None:
+        if self.is_closing or not self.gateway_restart_enabled or self.gateway_process is not None:
+            return
+
+        command = self.gateway_command
+        if not command:
+            port = self.port_var.get().strip() or DEFAULT_PORT
+            if not port.isdigit():
+                self.log("[錯誤] 無法自動重啟 Gateway：Port 設定不是數字")
+                self.gateway_state_var.set("自動重啟失敗")
+                return
+            command = self._resolve_openclaw_command() + ["gateway", "--port", port, "--verbose"]
+
+        self._launch_gateway_process(command, restart=True)
+
     def refresh_status(self) -> None:
         def work() -> None:
             self.log("[資訊] 重新檢查系統環境與 OpenClaw 狀態")
@@ -295,6 +389,7 @@ class OpenClawManagerApp(tk.Tk):
         self.git_var.set(self._format_tool_status(tools.get("git")))
         self.python_var.set(self._format_tool_status(tools.get("python") or tools.get("py")))
         self.openclaw_var.set(self._format_tool_status(tools.get("openclaw")))
+        self.nanobot_var.set(self._format_tool_status(tools.get("nanobot")))
         self.prefix_var.set(tools.get("npmGlobalPrefix") or "未取得")
 
         node_ok = requirements.get("nodeSatisfiesMinimum")
@@ -312,6 +407,7 @@ class OpenClawManagerApp(tk.Tk):
 
         resolved_path = tools.get("openclaw", {}).get("path") or tools.get("openclawResolvedPath")
         self.gateway_executable_path = resolved_path
+        self.nanobot_python_path = tools.get("nanobot", {}).get("pythonPath") or tools.get("nanobotPythonPath")
 
         self.log("[資訊] 環境檢查完成")
 
@@ -352,6 +448,19 @@ class OpenClawManagerApp(tk.Tk):
 
         self._run_task("正在安裝 OpenClaw", work)
 
+    def install_nanobot(self) -> None:
+        def work() -> None:
+            self.log("[執行] 檢查 Python 環境並安裝 NanoBot")
+            command = self._powershell_command(["-File", str(HELPER_SCRIPT), "-Action", "install-nanobot"])
+            return_code = self._stream_process(command)
+            if return_code != 0:
+                raise RuntimeError("安裝 NanoBot 失敗，請查看日誌。")
+            self.log("[完成] NanoBot 安裝完成")
+            status = self._run_helper_json("status")
+            self.after(0, lambda: self._apply_status(status))
+
+        self._run_task("正在安裝 NanoBot", work)
+
     def uninstall_openclaw(self) -> None:
         if not messagebox.askyesno("確認", "確定要反安裝 OpenClaw 嗎？"):
             return
@@ -379,6 +488,34 @@ class OpenClawManagerApp(tk.Tk):
         except Exception as exc:
             messagebox.showerror("無法啟動 Onboard", str(exc))
 
+    def run_nanobot(self) -> None:
+        if not self.nanobot_python_path or not Path(self.nanobot_python_path).exists():
+            messagebox.showerror("找不到 NanoBot", "請先安裝 NanoBot，或重新執行環境檢查。")
+            return
+
+        try:
+            command_text = f'& "{self.nanobot_python_path}" -m nanobot'
+            subprocess.Popen(
+                self._powershell_command(["-NoExit", "-Command", command_text]),
+                creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
+            )
+            self.log(f"[執行] 已在新終端啟動: {command_text}")
+        except Exception as exc:
+            messagebox.showerror("無法啟動 NanoBot", str(exc))
+
+    def stop_nanobot(self) -> None:
+        def work() -> None:
+            self.log("[執行] 停止所有 NanoBot 行程")
+            command = self._powershell_command(["-File", str(HELPER_SCRIPT), "-Action", "stop-nanobot"])
+            return_code = self._stream_process(command)
+            if return_code != 0:
+                raise RuntimeError("停止 NanoBot 失敗，請查看日誌。")
+            self.log("[完成] NanoBot 停止流程完成")
+            status = self._run_helper_json("status")
+            self.after(0, lambda: self._apply_status(status))
+
+        self._run_task("正在停止 NanoBot", work)
+
     def start_gateway(self) -> None:
         if self.gateway_process and self.gateway_process.poll() is None:
             messagebox.showinfo("Gateway 執行中", "OpenClaw Gateway 已經在執行。")
@@ -390,42 +527,11 @@ class OpenClawManagerApp(tk.Tk):
             return
 
         command = self._resolve_openclaw_command() + ["gateway", "--port", port, "--verbose"]
-
-        try:
-            self.gateway_process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
-            )
-        except FileNotFoundError:
-            messagebox.showerror("找不到 OpenClaw", "請先安裝 OpenClaw，或重新執行環境檢查。")
-            return
-        except Exception as exc:
-            messagebox.showerror("無法啟動 Gateway", str(exc))
-            return
-
-        self.log(f"[執行] 啟動 Gateway: {' '.join(command)}")
-        self.gateway_state_var.set("啟動中")
-
-        def consume_gateway_output() -> None:
-            assert self.gateway_process is not None
-            assert self.gateway_process.stdout is not None
-            for line in self.gateway_process.stdout:
-                self.log(line.rstrip())
-            return_code = self.gateway_process.wait()
-            self.log(f"[資訊] Gateway 已結束，exit code = {return_code}")
-            self.gateway_process = None
-            self.after(0, self.refresh_status)
-
-        threading.Thread(target=consume_gateway_output, daemon=True).start()
-        self.after(1200, self.refresh_status)
+        self._launch_gateway_process(command)
 
     def stop_gateway(self) -> None:
         def work() -> None:
+            self.gateway_restart_enabled = False
             self.log("[執行] 停止所有 OpenClaw Gateway 行程")
             command = self._powershell_command(["-File", str(HELPER_SCRIPT), "-Action", "stop-gateway"])
             return_code = self._stream_process(command)
@@ -487,8 +593,12 @@ class OpenClawManagerApp(tk.Tk):
         self._run_task("正在執行 OpenClaw doctor", work)
 
     def _on_close(self) -> None:
+        self.is_closing = True
+        self.gateway_restart_enabled = False
         if self.gateway_process and self.gateway_process.poll() is None:
             if not messagebox.askyesno("關閉程式", "Gateway 仍在執行，確定要直接關閉視窗嗎？"):
+                self.is_closing = False
+                self.gateway_restart_enabled = True
                 return
         self.destroy()
 
