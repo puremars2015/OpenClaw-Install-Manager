@@ -302,17 +302,17 @@ function Invoke-WingetPackage {
     $isInstalled = $listResult.ExitCode -eq 0 -and $listResult.Output -match [regex]::Escape($PackageId)
 
     if ($isInstalled) {
-        $upgradeResult = Invoke-CommandAndCapture -FilePath 'winget' -Arguments @('upgrade', '--id', $PackageId, '--exact', '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity')
+        $upgradeResult = Invoke-CommandAndCapture -FilePath 'winget' -Arguments @('upgrade', '--id', $PackageId, '--exact', '--scope', 'machine', '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity')
         if ($upgradeResult.Output) {
             Write-Host $upgradeResult.Output
         }
         if ($upgradeResult.ExitCode -ne 0 -and -not (Test-WingetNoApplicableUpgrade -ExitCode $upgradeResult.ExitCode -Output $upgradeResult.Output)) {
-            throw "winget upgrade $PackageId failed."
+            throw "winget upgrade $PackageId failed (exit code $($upgradeResult.ExitCode))."
         }
         return
     }
 
-    & winget install --id $PackageId --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
+    & winget install --id $PackageId --exact --scope machine --accept-package-agreements --accept-source-agreements --disable-interactivity
     if ($LASTEXITCODE -ne 0) {
         throw "winget install $PackageId failed."
     }

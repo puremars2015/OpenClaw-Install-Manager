@@ -603,9 +603,44 @@ class OpenClawManagerApp(tk.Tk):
         self.destroy()
 
 
+def _request_elevation() -> None:
+    """若目前不具管理員權限，以 UAC 重新啟動；失敗時直接結束程式。"""
+    if sys.platform != "win32":
+        return
+    import ctypes
+    shell32 = ctypes.windll.shell32
+
+    try:
+        if shell32.IsUserAnAdmin():
+            return
+    except Exception as exc:
+        raise SystemExit(f"無法確認管理者權限: {exc}") from exc
+
+    parameters = None
+    if not getattr(sys, "frozen", False):
+        script = str(Path(sys.argv[0]).resolve())
+        parameters = f'"{script}"'
+
+    result = shell32.ShellExecuteW(None, "runas", sys.executable, parameters, None, 1)
+    if result <= 32:
+        try:
+            ctypes.windll.user32.MessageBoxW(
+                None,
+                "OpenClaw 安裝與控制工具需要管理者權限。請允許 UAC 提示後重新啟動。",
+                "需要管理者權限",
+                0x10,
+            )
+        except Exception:
+            pass
+        raise SystemExit("需要管理者權限才能執行 OpenClaw Manager。")
+
+    sys.exit(0)
+
+
 def main() -> None:
     if not HELPER_SCRIPT.exists():
         raise SystemExit(f"找不到輔助腳本: {HELPER_SCRIPT}")
+    _request_elevation()
     app = OpenClawManagerApp()
     app.mainloop()
 

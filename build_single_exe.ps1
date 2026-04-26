@@ -3,9 +3,14 @@ $ErrorActionPreference = 'Stop'
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $pythonExe = Join-Path $scriptRoot '.venv\Scripts\python.exe'
+$manifestPath = Join-Path $scriptRoot 'openclaw_manager.manifest'
 
 if (-not (Test-Path $pythonExe)) {
     throw 'Python virtual environment was not found at .venv\Scripts\python.exe.'
+}
+
+if (-not (Test-Path $manifestPath)) {
+    throw 'Application manifest was not found at openclaw_manager.manifest.'
 }
 
 & $pythonExe -m pip install pyinstaller
@@ -22,6 +27,9 @@ $pyInstallerArgs = @(
     '--clean',
     '--windowed',
     '--onefile',
+    '--uac-admin',
+    '--manifest',
+    $manifestPath,
     '--name',
     'OpenClawManager',
     '--add-data',
