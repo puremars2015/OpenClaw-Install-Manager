@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('status', 'install-prerequisites', 'install-openclaw', 'install-nanobot', 'uninstall-openclaw', 'stop-gateway', 'stop-nanobot')]
+    [ValidateSet('status', 'install-prerequisites', 'install-powershell', 'install-nodejs', 'install-npm', 'install-git', 'install-python', 'install-openclaw', 'install-nanobot', 'uninstall-openclaw', 'stop-gateway', 'stop-nanobot')]
     [string]$Action
 )
 
@@ -422,10 +422,37 @@ function Get-Status {
 }
 
 function Install-Prerequisites {
-    Invoke-WingetPackage -PackageId 'Microsoft.PowerShell' -DisplayName 'PowerShell 7'
-    Invoke-WingetPackage -PackageId 'OpenJS.NodeJS.LTS' -DisplayName 'Node.js LTS'
-    Invoke-WingetPackage -PackageId 'Git.Git' -DisplayName 'Git'
-    Invoke-WingetPackage -PackageId 'Python.Python.3.12' -DisplayName 'Python 3.12'
+    Install-Dependency -Name 'powershell'
+    Install-Dependency -Name 'nodejs'
+    Install-Dependency -Name 'git'
+    Install-Dependency -Name 'python'
+}
+
+function Install-Dependency {
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('powershell', 'nodejs', 'npm', 'git', 'python')]
+        [string]$Name
+    )
+
+    switch ($Name) {
+        'powershell' {
+            Invoke-WingetPackage -PackageId 'Microsoft.PowerShell' -DisplayName 'PowerShell 7'
+        }
+        'nodejs' {
+            Invoke-WingetPackage -PackageId 'OpenJS.NodeJS.LTS' -DisplayName 'Node.js LTS'
+        }
+        'npm' {
+            Write-Host 'npm is bundled with Node.js LTS. Ensuring Node.js LTS is installed or updated...'
+            Invoke-WingetPackage -PackageId 'OpenJS.NodeJS.LTS' -DisplayName 'Node.js LTS'
+        }
+        'git' {
+            Invoke-WingetPackage -PackageId 'Git.Git' -DisplayName 'Git'
+        }
+        'python' {
+            Invoke-WingetPackage -PackageId 'Python.Python.3.12' -DisplayName 'Python 3.12'
+        }
+    }
 }
 
 function Install-OpenClaw {
@@ -506,6 +533,21 @@ switch ($Action) {
     }
     'install-prerequisites' {
         Install-Prerequisites
+    }
+    'install-powershell' {
+        Install-Dependency -Name 'powershell'
+    }
+    'install-nodejs' {
+        Install-Dependency -Name 'nodejs'
+    }
+    'install-npm' {
+        Install-Dependency -Name 'npm'
+    }
+    'install-git' {
+        Install-Dependency -Name 'git'
+    }
+    'install-python' {
+        Install-Dependency -Name 'python'
     }
     'install-openclaw' {
         Install-OpenClaw

@@ -83,23 +83,24 @@ class OpenClawManagerApp(tk.Tk):
         env_frame = ttk.LabelFrame(controls, text="環境與安裝", padding=12)
         env_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
         env_frame.columnconfigure(1, weight=1)
+        env_frame.columnconfigure(2, weight=0)
 
         runtime_frame = ttk.LabelFrame(controls, text="執行與操作", padding=12)
         runtime_frame.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
         runtime_frame.columnconfigure(1, weight=1)
 
-        self._add_status_row(env_frame, 0, "PowerShell 7", self.pwsh_var)
-        self._add_status_row(env_frame, 1, "Node.js", self.node_var)
-        self._add_status_row(env_frame, 2, "npm", self.npm_var)
-        self._add_status_row(env_frame, 3, "Git", self.git_var)
-        self._add_status_row(env_frame, 4, "Python", self.python_var)
-        self._add_status_row(env_frame, 5, "OpenClaw", self.openclaw_var)
-        self._add_status_row(env_frame, 6, "NanoBot", self.nanobot_var)
+        self._add_status_row(env_frame, 0, "PowerShell 7", self.pwsh_var, button_text="安裝/更新", button_command=self.install_powershell)
+        self._add_status_row(env_frame, 1, "Node.js", self.node_var, button_text="安裝/更新", button_command=self.install_nodejs)
+        self._add_status_row(env_frame, 2, "npm", self.npm_var, button_text="安裝/更新", button_command=self.install_npm)
+        self._add_status_row(env_frame, 3, "Git", self.git_var, button_text="安裝/更新", button_command=self.install_git)
+        self._add_status_row(env_frame, 4, "Python", self.python_var, button_text="安裝/更新", button_command=self.install_python)
+        self._add_status_row(env_frame, 5, "OpenClaw", self.openclaw_var, button_text="安裝/更新", button_command=self.install_openclaw)
+        self._add_status_row(env_frame, 6, "NanoBot", self.nanobot_var, button_text="安裝/更新", button_command=self.install_nanobot)
         self._add_status_row(env_frame, 7, "npm 全域路徑", self.prefix_var)
         self._add_status_row(env_frame, 8, "需求檢查", self.requirements_var)
 
         button_bar = ttk.Frame(env_frame)
-        button_bar.grid(row=9, column=0, columnspan=2, sticky="ew", pady=(12, 0))
+        button_bar.grid(row=9, column=0, columnspan=3, sticky="ew", pady=(12, 0))
         button_bar.columnconfigure((0, 1, 2, 3, 4), weight=1)
 
         ttk.Button(button_bar, text="重新檢查", command=self.refresh_status).grid(row=0, column=0, sticky="ew", padx=(0, 6))
@@ -152,9 +153,19 @@ class OpenClawManagerApp(tk.Tk):
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
-    def _add_status_row(self, parent: ttk.Widget, row: int, label: str, variable: tk.StringVar) -> None:
+    def _add_status_row(
+        self,
+        parent: ttk.Widget,
+        row: int,
+        label: str,
+        variable: tk.StringVar,
+        button_text: str | None = None,
+        button_command=None,
+    ) -> None:
         ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", pady=2)
         ttk.Label(parent, textvariable=variable).grid(row=row, column=1, sticky="w", pady=2)
+        if button_text and button_command:
+            ttk.Button(parent, text=button_text, command=button_command).grid(row=row, column=2, sticky="e", padx=(12, 0), pady=2)
 
     def _detect_shell_executable(self) -> str:
         for candidate in ("pwsh", "powershell"):
@@ -422,44 +433,98 @@ class OpenClawManagerApp(tk.Tk):
             return f"{version} | {path}"
         return version
 
-    def install_prerequisites(self) -> None:
+    def _run_helper_action_task(
+        self,
+        *,
+        action: str,
+        task_label: str,
+        start_log: str,
+        success_log: str,
+        error_message: str,
+    ) -> None:
         def work() -> None:
-            self.log("[執行] 安裝或更新 PowerShell 7 / Node.js / Git / Python")
-            command = self._powershell_command(["-File", str(HELPER_SCRIPT), "-Action", "install-prerequisites"])
+            self.log(start_log)
+            command = self._powershell_command(["-File", str(HELPER_SCRIPT), "-Action", action])
             return_code = self._stream_process(command)
             if return_code != 0:
-                raise RuntimeError("安裝依賴失敗，請查看日誌。")
-            self.log("[完成] 依賴安裝流程完成")
+                raise RuntimeError(error_message)
+            self.log(success_log)
             status = self._run_helper_json("status")
             self.after(0, lambda: self._apply_status(status))
 
-        self._run_task("正在安裝或更新依賴", work)
+        self._run_task(task_label, work)
+
+    def install_powershell(self) -> None:
+        self._run_helper_action_task(
+            action="install-powershell",
+            task_label="正在安裝或更新 PowerShell 7",
+            start_log="[執行] 安裝或更新 PowerShell 7",
+            success_log="[完成] PowerShell 7 安裝流程完成",
+            error_message="安裝或更新 PowerShell 7 失敗，請查看日誌。",
+        )
+
+    def install_nodejs(self) -> None:
+        self._run_helper_action_task(
+            action="install-nodejs",
+            task_label="正在安裝或更新 Node.js",
+            start_log="[執行] 安裝或更新 Node.js LTS",
+            success_log="[完成] Node.js 安裝流程完成",
+            error_message="安裝或更新 Node.js 失敗，請查看日誌。",
+        )
+
+    def install_npm(self) -> None:
+        self._run_helper_action_task(
+            action="install-npm",
+            task_label="正在安裝或更新 npm",
+            start_log="[執行] 安裝或更新 npm（透過 Node.js LTS）",
+            success_log="[完成] npm 安裝流程完成",
+            error_message="安裝或更新 npm 失敗，請查看日誌。",
+        )
+
+    def install_git(self) -> None:
+        self._run_helper_action_task(
+            action="install-git",
+            task_label="正在安裝或更新 Git",
+            start_log="[執行] 安裝或更新 Git",
+            success_log="[完成] Git 安裝流程完成",
+            error_message="安裝或更新 Git 失敗，請查看日誌。",
+        )
+
+    def install_python(self) -> None:
+        self._run_helper_action_task(
+            action="install-python",
+            task_label="正在安裝或更新 Python",
+            start_log="[執行] 安裝或更新 Python 3.12",
+            success_log="[完成] Python 安裝流程完成",
+            error_message="安裝或更新 Python 失敗，請查看日誌。",
+        )
+
+    def install_prerequisites(self) -> None:
+        self._run_helper_action_task(
+            action="install-prerequisites",
+            task_label="正在安裝或更新依賴",
+            start_log="[執行] 安裝或更新 PowerShell 7 / Node.js / Git / Python",
+            success_log="[完成] 依賴安裝流程完成",
+            error_message="安裝依賴失敗，請查看日誌。",
+        )
 
     def install_openclaw(self) -> None:
-        def work() -> None:
-            self.log("[執行] 安裝 OpenClaw 套件")
-            command = self._powershell_command(["-File", str(HELPER_SCRIPT), "-Action", "install-openclaw"])
-            return_code = self._stream_process(command)
-            if return_code != 0:
-                raise RuntimeError("安裝 OpenClaw 失敗，請查看日誌。")
-            self.log("[完成] OpenClaw 安裝完成")
-            status = self._run_helper_json("status")
-            self.after(0, lambda: self._apply_status(status))
-
-        self._run_task("正在安裝 OpenClaw", work)
+        self._run_helper_action_task(
+            action="install-openclaw",
+            task_label="正在安裝 OpenClaw",
+            start_log="[執行] 安裝 OpenClaw 套件",
+            success_log="[完成] OpenClaw 安裝完成",
+            error_message="安裝 OpenClaw 失敗，請查看日誌。",
+        )
 
     def install_nanobot(self) -> None:
-        def work() -> None:
-            self.log("[執行] 檢查 Python 環境並安裝 NanoBot")
-            command = self._powershell_command(["-File", str(HELPER_SCRIPT), "-Action", "install-nanobot"])
-            return_code = self._stream_process(command)
-            if return_code != 0:
-                raise RuntimeError("安裝 NanoBot 失敗，請查看日誌。")
-            self.log("[完成] NanoBot 安裝完成")
-            status = self._run_helper_json("status")
-            self.after(0, lambda: self._apply_status(status))
-
-        self._run_task("正在安裝 NanoBot", work)
+        self._run_helper_action_task(
+            action="install-nanobot",
+            task_label="正在安裝 NanoBot",
+            start_log="[執行] 檢查 Python 環境並安裝 NanoBot",
+            success_log="[完成] NanoBot 安裝完成",
+            error_message="安裝 NanoBot 失敗，請查看日誌。",
+        )
 
     def uninstall_openclaw(self) -> None:
         if not messagebox.askyesno("確認", "確定要反安裝 OpenClaw 嗎？"):

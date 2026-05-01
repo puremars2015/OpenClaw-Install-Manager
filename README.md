@@ -19,6 +19,7 @@ OpenClaw自動安裝程式是一個用於簡化OpenClaw安裝過程的工具。�
     - powershell有沒有更新到7.x版?
     - 包括Python、Node.js、Git等必要工具。
     - PowerShell腳本將自動處理這些安裝過程，確保用戶無需手動干預。
+- 每個依賴項目右側都提供獨立的「安裝/更新」按鈕，可單獨補裝或升級 PowerShell 7、Node.js、npm、Git、Python、OpenClaw、NanoBot。
 - 提供一個簡單的界面，讓用戶可以輕鬆地安裝和配置OpenClaw。
 - 提供對應的操作控制板，讓用戶可以方便地啟動、停止和監控OpenClaw的運行狀態。
 - 提供啟動dashboard的功能，讓用戶可以不用透過命令行就能啟動dashboard。
@@ -36,6 +37,7 @@ OpenClaw自動安裝程式是一個用於簡化OpenClaw安裝過程的工具。�
 ## 工具功能
 - 檢查 PowerShell 7、Node.js、npm、Git、Python、OpenClaw 是否已安裝。
 - 使用 `winget` 自動安裝或更新 PowerShell 7、Node.js LTS、Git、Python 3.12。
+- GUI 內每個依賴列都可獨立觸發安裝或更新；其中 `npm` 會透過更新 `Node.js LTS` 一併處理。
 - 使用 `npm install -g openclaw@latest` 安裝 OpenClaw。
 - 使用 `npm uninstall -g openclaw` 反安裝 OpenClaw。
 - 安裝 NanoBot 前會先檢查 Python；若未安裝，會使用 `winget` 自動安裝 Python 3.12。
@@ -58,7 +60,7 @@ OpenClaw自動安裝程式是一個用於簡化OpenClaw安裝過程的工具。�
 
 3. 進入 GUI 後，建議依序操作：
     - `重新檢查`
-    - `安裝/更新依賴`
+    - 視需要點選各依賴列右側的 `安裝/更新`，或直接使用 `安裝/更新依賴`
     - `安裝 OpenClaw`
     - `安裝 NanoBot`（需要時會自動安裝 Python 並建立虛擬環境）
     - `啟動 Onboard`
