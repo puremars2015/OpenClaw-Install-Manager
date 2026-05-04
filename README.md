@@ -9,46 +9,42 @@
 [https://github.com/puremars2015/OpenClaw-Install-Manager/raw/refs/heads/main/dist/OpenClawManager.exe](https://github.com/puremars2015/OpenClaw-Install-Manager/raw/refs/heads/main/dist/OpenClawManager.exe)
 
 ## 介紹
-OpenClaw自動安裝程式是一個用於簡化OpenClaw安裝過程的工具。它提供了一個簡單的界面，讓用戶可以輕鬆地安裝和配置OpenClaw，無需手動處理複雜的安裝步驟。
+OpenClaw自動安裝程式是一個用於簡化環境檢查與安裝流程的 Windows GUI 工具。它將介面收斂成兩個部分：
 
-並提供對應的操作控制板，讓用戶可以方便地管理和控制OpenClaw的運行狀態。
+- 檢查 PowerShell 7、Node.js、npm、Git、Python、OpenCode、OpenClaw 是否已安裝。
+- 安裝全部尚未有的環境套件，以及安裝指定版本的 OpenClaw 4.11。
+- 安裝最新版 OpenClaw，或移除已安裝的 OpenClaw。
+- 設定預設 API Key，並切換預設模型供應商。
+- 啟動與停止由本工具建立的 OpenClaw Gateway 行程。
 
 ## 功能
-- 軟體以python的gui套件tkinter開發，提供一個簡單易用的界面。
-- 自動檢查、下載和安裝OpenClaw所需的依賴項。
-    - powershell有沒有更新到7.x版?
-    - 包括Python、Node.js、Git等必要工具。
-    - PowerShell腳本將自動處理這些安裝過程，確保用戶無需手動干預。
-- 每個依賴項目右側都提供獨立的「安裝/更新」按鈕，可單獨補裝或升級 PowerShell 7、Node.js、npm、Git、Python、OpenClaw、NanoBot。
-- 提供一個簡單的界面，讓用戶可以輕鬆地安裝和配置OpenClaw。
-- 提供對應的操作控制板，讓用戶可以方便地啟動、停止和監控OpenClaw的運行狀態。
-- 提供啟動dashboard的功能，讓用戶可以不用透過命令行就能啟動dashboard。
-- 啟動 OpenClaw Gateway 後會持續監控，若異常結束會自動重新啟動。
-- 提供安裝與啟動 NanoBot 的功能，並在需要時自動建立 Python 環境。
-- 提供停止 NanoBot 的功能，方便直接結束相關行程。
-- 提供反安裝openclaw的功能，讓用戶可以方便地卸載openclaw。
+- 軟體以 Python 的 GUI 套件 tkinter 開發，提供簡化後的 Windows 安裝介面。
+- GUI 提供三類功能：環境檢查、安裝、Gateway 啟停。
+- 環境檢查會顯示 PowerShell 7、Node.js、npm、Git、Python、OpenCode、OpenClaw 的安裝狀態、版本與路徑。
+- 「安裝全部尚未有的環境套件」會補齊 PowerShell 7、Node.js、npm、Git、Python、OpenCode。
+- OpenCode 透過 `npm install -g opencode-ai` 安裝，指令名稱為 `opencode`。
+- 「安裝 OpenClaw 4.11」會固定安裝 `openclaw@2026.4.11`。
+- 「安裝最新版 OpenClaw」會執行 `npm install -g openclaw`。
+- 「移除 OpenClaw」會執行 `npm uninstall -g openclaw`。
+- 「設定預設 API Key」可選擇 `OpenRouter`、`OpenAI`、`Anthropic`、`MiniMax`，把 token 寫入 OpenClaw auth store，並切換到該供應商的預設模型。
+- 「啟動 OpenClaw Gateway」會執行 `openclaw gateway run --force` 並把輸出顯示在 GUI 日誌區。
+- 「停止 OpenClaw Gateway」只會停止由本工具啟動的 Gateway 行程。
 
 ## 已實作內容
 - `openclaw_manager.py`：以 `tkinter` 開發的 Windows GUI 工具。
-- `scripts/openclaw_helper.ps1`：負責檢查環境、安裝依賴、安裝/反安裝 OpenClaw、停止 Gateway。
-- NanoBot 會安裝到專屬的 Python 虛擬環境，不會和系統其他 Python 套件混用。
+- `scripts/openclaw_helper.ps1`：負責檢查環境、安裝缺少的環境套件、安裝 OpenClaw 4.11。
 - `run_openclaw_manager.ps1`：Windows 啟動器，會自動用 `py -3` 或 `python` 啟動 GUI。
 
 ## 工具功能
-- 檢查 PowerShell 7、Node.js、npm、Git、Python、OpenClaw 是否已安裝。
-- 使用 `winget` 自動安裝或更新 PowerShell 7、Node.js LTS、Git、Python 3.12。
-- GUI 內每個依賴列都可獨立觸發安裝或更新；其中 `npm` 會透過更新 `Node.js LTS` 一併處理。
-- 使用 `npm install -g openclaw@latest` 安裝 OpenClaw。
-- 使用 `npm uninstall -g openclaw` 反安裝 OpenClaw。
-- 安裝 NanoBot 前會先檢查 Python；若未安裝，會使用 `winget` 自動安裝 Python 3.12。
-- 自動建立 NanoBot 專用虛擬環境，並使用 `pip install --upgrade nanobot` 安裝。
-- 以 GUI 啟動 `openclaw onboard --install-daemon`。
-- 以 GUI 啟動與停止 `openclaw gateway --port 18789 --verbose`。
-- Gateway 若非正常結束，GUI 會在短暫延遲後自動重新啟動。
-- 以 GUI 啟動 `python -m nanobot`。
-- 以 GUI 停止 NanoBot 相關行程。
-- 直接開啟本機 Dashboard：`http://127.0.0.1:18789`。
-- 提供 `openclaw doctor` 按鈕做快速診斷。
+- 檢查 PowerShell 7、Node.js、npm、Git、Python、OpenCode、OpenClaw 是否已安裝。
+- 使用 `winget` 補安裝缺少的 PowerShell 7、Node.js LTS、Git、Python 3.12。
+- 若缺少 `npm`，會透過安裝 Node.js LTS 一併補齊。
+- 使用 `npm install -g opencode-ai` 安裝 OpenCode。
+- 使用 `npm install -g openclaw@2026.4.11` 安裝 OpenClaw 4.11。
+- 使用 `npm install -g openclaw` 安裝最新版 OpenClaw。
+- 使用 `npm uninstall -g openclaw` 移除已安裝的 OpenClaw。
+- 可透過 GUI 設定 OpenClaw 的預設 API Key 與模型供應商，支援 OpenRouter、OpenAI、Anthropic、MiniMax。
+- 透過 GUI 啟動 `openclaw gateway run --force`，並可從 GUI 停止同一個 Gateway 行程。
 
 ## 執行方式
 1. 先確認本機已安裝 Python 3。
@@ -60,14 +56,11 @@ OpenClaw自動安裝程式是一個用於簡化OpenClaw安裝過程的工具。�
 
 3. 進入 GUI 後，建議依序操作：
     - `重新檢查`
-    - 視需要點選各依賴列右側的 `安裝/更新`，或直接使用 `安裝/更新依賴`
-    - `安裝 OpenClaw`
-    - `安裝 NanoBot`（需要時會自動安裝 Python 並建立虛擬環境）
-    - `啟動 Onboard`
-    - `啟動 Gateway`
-    - `啟動 NanoBot`
-    - `停止 NanoBot`
-    - `開啟 Dashboard`
+    - `安裝全部尚未有的環境套件`
+    - `安裝 OpenClaw 4.11`
+    - `設定預設 API Key`
+    - `安裝最新版 OpenClaw` 或 `移除 OpenClaw`
+    - `啟動 OpenClaw Gateway`
 
 ## 打包成單一 EXE
 在專案根目錄執行：
@@ -90,6 +83,5 @@ OpenClaw自動安裝程式是一個用於簡化OpenClaw安裝過程的工具。�
 ## 注意事項
 - 程式啟動時會先要求管理者權限；若取消 UAC 提示，安裝程式會直接結束，不會以一般權限繼續執行。
 - 依賴安裝使用 `winget`，若系統沒有 `winget`，需要先補安裝 App Installer。
-- OpenClaw 官方 README 建議 Windows 使用 WSL2；本工具先提供原生 Windows 安裝與操作流程。
-- 若剛安裝完 Node.js 或 OpenClaw，GUI 內部會重新檢查 npm 全域路徑，避免 PATH 尚未刷新時找不到 `openclaw`。
-- NanoBot 的虛擬環境預設會建立在 `%LOCALAPPDATA%\OpenClawManager\NanoBot\venv`。
+- OpenClaw 官方 README 建議 Windows 使用 WSL2；本工具先提供原生 Windows 的檢查與安裝流程。
+- 若剛安裝完 Node.js，helper 會優先用常見安裝路徑重新尋找 `node` 與 `npm`，降低 PATH 尚未刷新造成的誤判。
