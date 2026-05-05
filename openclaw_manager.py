@@ -8,6 +8,7 @@ import subprocess
 import sys
 import threading
 import tkinter as tk
+from datetime import datetime
 from pathlib import Path
 from tkinter import messagebox, ttk
 
@@ -99,6 +100,9 @@ class OpenClawManagerApp(tk.Tk):
         ttk.Button(action_frame, text="安裝最新版 OpenClaw", command=self.install_openclaw_latest).grid(row=3, column=0, sticky="ew", pady=(10, 0))
         ttk.Button(action_frame, text="移除 OpenClaw", command=self.uninstall_openclaw).grid(row=4, column=0, sticky="ew", pady=(10, 0))
         ttk.Button(action_frame, text="設定預設 API Key", command=self.open_api_key_settings).grid(row=5, column=0, sticky="ew", pady=(10, 0))
+        ttk.Button(action_frame, text="OpenClaw初始化", command=self.setup_openclaw).grid(row=6, column=0, sticky="ew", pady=(10, 0))
+        ttk.Button(action_frame, text="打開交談視窗", command=self.open_dashboard).grid(row=7, column=0, sticky="ew", pady=(10, 0))
+        ttk.Button(action_frame, text="備份 .openclaw 資料夾", command=self.archive_openclaw_directory).grid(row=8, column=0, sticky="ew", pady=(10, 0))
 
         notes = ttk.Label(
             action_frame,
@@ -106,12 +110,15 @@ class OpenClawManagerApp(tk.Tk):
                 "環境套件安裝會補齊 PowerShell 7、Node.js、npm、Git、Python、OpenCode。\n"
                 "OpenCode 透過 npm 全域安裝 opencode-ai。\n"
                 "OpenClaw 4.1 會固定安裝 openclaw@2026.4.1。\n"
+                "OpenClaw初始化 會執行 openclaw setup。\n"
+                "打開交談視窗 會執行 openclaw dashboard。\n"
                 "最新版 OpenClaw 與移除 OpenClaw 也會透過 npm 全域執行。\n"
+                "備份 .openclaw 資料夾 會把目前的 .openclaw 改名成 .openclaw-yyyymmdd-hhmmss。\n"
                 "設定預設 API Key 會寫入 OpenClaw auth store，並切換對應供應商的預設模型。"
             ),
             justify="left",
         )
-        notes.grid(row=6, column=0, sticky="w", pady=(12, 0))
+        notes.grid(row=9, column=0, sticky="w", pady=(12, 0))
 
         gateway_frame = ttk.LabelFrame(content, text="3. Gateway", padding=12)
         gateway_frame.grid(row=1, column=1, sticky="nsew", padx=(8, 0), pady=(12, 0))
@@ -268,6 +275,27 @@ class OpenClawManagerApp(tk.Tk):
     def _build_openclaw_command(self) -> list[str]:
         return self._build_openclaw_cli_command(["gateway", "run", "--force"])
 
+    def _launch_gateway_process(self) -> subprocess.Popen[str]:
+        command = self._build_openclaw_command()
+        self.log("[執行] 啟動 OpenClaw Gateway")
+        self.log(f"[資訊] 指令: {' '.join(command)}")
+        creationflags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            creationflags=creationflags,
+        )
+        self.gateway_process = process
+        self.gateway_stop_requested = False
+        self.after(0, self._update_gateway_buttons)
+        self.log(f"[完成] OpenClaw Gateway 已啟動，PID {process.pid}")
+        threading.Thread(target=self._monitor_gateway_process, args=(process,), daemon=True).start()
+        return process
+
     def _run_openclaw_command(
         self,
         args: list[str],
@@ -407,9 +435,17 @@ class OpenClawManagerApp(tk.Tk):
         if was_user_stop:
             self.log("[完成] OpenClaw Gateway 已停止")
         elif return_code == 0:
-            self.log("[完成] OpenClaw Gateway 已結束")
+            self.log("[警告] OpenClaw Gateway 自行結束，正在自動重新啟動")
+            try:
+                self._launch_gateway_process()
+            except Exception as exc:
+                self.log(f"[錯誤] OpenClaw Gateway 自動重啟失敗: {exc}")
         else:
-            self.log(f"[警告] OpenClaw Gateway 已結束，代碼 {return_code}")
+            self.log(f"[警告] OpenClaw Gateway 已結束，代碼 {return_code}，正在自動重新啟動")
+            try:
+                self._launch_gateway_process()
+            except Exception as exc:
+                self.log(f"[錯誤] OpenClaw Gateway 自動重啟失敗: {exc}")
 
     def start_gateway(self) -> None:
         if self._is_gateway_running():
@@ -419,24 +455,7 @@ class OpenClawManagerApp(tk.Tk):
         def work() -> None:
             self.set_status("正在啟動 OpenClaw Gateway")
             try:
-                command = self._build_openclaw_command()
-                self.log("[執行] 啟動 OpenClaw Gateway")
-                self.log(f"[資訊] 指令: {' '.join(command)}")
-                creationflags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
-                process = subprocess.Popen(
-                    command,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    creationflags=creationflags,
-                )
-                self.gateway_process = process
-                self.gateway_stop_requested = False
-                self.after(0, self._update_gateway_buttons)
-                self.log(f"[完成] OpenClaw Gateway 已啟動，PID {process.pid}")
-                threading.Thread(target=self._monitor_gateway_process, args=(process,), daemon=True).start()
+                self._launch_gateway_process()
             except Exception as exc:
                 error_message = str(exc)
                 self.log(f"[錯誤] {error_message}")
@@ -500,6 +519,19 @@ class OpenClawManagerApp(tk.Tk):
             return f"{version} | {path}"
         return version
 
+    def _get_openclaw_config_dir(self) -> Path:
+        return Path.home() / ".openclaw"
+
+    def _build_openclaw_archive_dir(self) -> Path:
+        source_dir = self._get_openclaw_config_dir()
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        target_dir = source_dir.parent / f".openclaw-{timestamp}"
+        suffix = 1
+        while target_dir.exists():
+            target_dir = source_dir.parent / f".openclaw-{timestamp}-{suffix}"
+            suffix += 1
+        return target_dir
+
     def _run_helper_action_task(
         self,
         *,
@@ -522,6 +554,25 @@ class OpenClawManagerApp(tk.Tk):
             self.log(success_log)
             status = self._run_helper_json("status")
             self.after(0, lambda: self._apply_status(status))
+
+        self._run_task(task_label, work)
+
+    def _run_openclaw_action_task(
+        self,
+        *,
+        args: list[str],
+        task_label: str,
+        start_log: str,
+        success_log: str,
+        error_message: str,
+    ) -> None:
+        def work() -> None:
+            self.log(start_log)
+            command = self._build_openclaw_cli_command(args)
+            return_code = self._stream_process(command)
+            if return_code != 0:
+                raise RuntimeError(error_message)
+            self.log(success_log)
 
         self._run_task(task_label, work)
 
@@ -561,6 +612,52 @@ class OpenClawManagerApp(tk.Tk):
             success_log="[完成] OpenClaw 已移除",
             error_message="移除 OpenClaw 失敗，請查看日誌。",
         )
+
+    def archive_openclaw_directory(self) -> None:
+        def work() -> None:
+            source_dir = self._get_openclaw_config_dir()
+            if not source_dir.exists():
+                raise RuntimeError(f"找不到 {source_dir}，無法備份。")
+            if not source_dir.is_dir():
+                raise RuntimeError(f"{source_dir} 不是資料夾，無法備份。")
+
+            target_dir = self._build_openclaw_archive_dir()
+            self.log(f"[執行] 備份 {source_dir.name} 資料夾")
+            self.log(f"[資訊] 重新命名為 {target_dir.name}")
+            source_dir.rename(target_dir)
+            self.log(f"[完成] 已將 {source_dir.name} 改名為 {target_dir.name}")
+
+        self._run_task(
+            "正在備份 .openclaw 資料夾",
+            work,
+        )
+
+    def setup_openclaw(self) -> None:
+        self._run_openclaw_action_task(
+            args=["setup"],
+            task_label="正在初始化 OpenClaw",
+            start_log="[執行] OpenClaw初始化",
+            success_log="[完成] OpenClaw 初始化完成",
+            error_message="OpenClaw 初始化失敗，請查看日誌。",
+        )
+
+    def open_dashboard(self) -> None:
+        def work() -> None:
+            command = self._build_openclaw_cli_command(["dashboard"])
+            self.log("[執行] 打開 OpenClaw 交談視窗")
+            self.log(f"[資訊] 指令: {' '.join(command)}")
+            creationflags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+            subprocess.Popen(
+                command,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL,
+                text=True,
+                creationflags=creationflags,
+            )
+            self.log("[完成] 已啟動 OpenClaw 交談視窗")
+
+        self._run_task("正在打開 OpenClaw 交談視窗", work)
 
     def _on_close(self) -> None:
         if self._is_gateway_running():

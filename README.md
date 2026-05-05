@@ -14,6 +14,7 @@ OpenClaw自動安裝程式是一個用於簡化環境檢查與安裝流程的 Wi
 - 檢查 PowerShell 7、Node.js、npm、Git、Python、OpenCode、OpenClaw 是否已安裝。
 - 安裝全部尚未有的環境套件，以及安裝指定版本的 OpenClaw 4.1。
 - 安裝最新版 OpenClaw，或移除已安裝的 OpenClaw。
+- 初始化 OpenClaw，或打開 OpenClaw 交談視窗。
 - 設定預設 API Key，並切換預設模型供應商。
 - 啟動與停止由本工具建立的 OpenClaw Gateway 行程。
 
@@ -26,6 +27,8 @@ OpenClaw自動安裝程式是一個用於簡化環境檢查與安裝流程的 Wi
 - 「安裝 OpenClaw 4.1」會固定安裝 `openclaw@2026.4.1`。
 - 「安裝最新版 OpenClaw」會執行 `npm install -g openclaw`。
 - 「移除 OpenClaw」會執行 `npm uninstall -g openclaw`。
+- 「OpenClaw初始化」會執行 `openclaw setup`。
+- 「打開交談視窗」會執行 `openclaw dashboard`。
 - 「設定預設 API Key」可選擇 `OpenRouter`、`OpenAI`、`Anthropic`、`MiniMax`，把 token 寫入 OpenClaw auth store，並切換到該供應商的預設模型。
 - 「啟動 OpenClaw Gateway」會執行 `openclaw gateway run --force` 並把輸出顯示在 GUI 日誌區。
 - 「停止 OpenClaw Gateway」只會停止由本工具啟動的 Gateway 行程。
@@ -43,6 +46,8 @@ OpenClaw自動安裝程式是一個用於簡化環境檢查與安裝流程的 Wi
 - 使用 `npm install -g openclaw@2026.4.1` 安裝 OpenClaw 4.1。
 - 使用 `npm install -g openclaw` 安裝最新版 OpenClaw。
 - 使用 `npm uninstall -g openclaw` 移除已安裝的 OpenClaw。
+- 使用 `openclaw setup` 初始化 OpenClaw。
+- 使用 `openclaw dashboard` 打開 OpenClaw 交談視窗。
 - 可透過 GUI 設定 OpenClaw 的預設 API Key 與模型供應商，支援 OpenRouter、OpenAI、Anthropic、MiniMax。
 - 透過 GUI 啟動 `openclaw gateway run --force`，並可從 GUI 停止同一個 Gateway 行程。
 
@@ -58,6 +63,8 @@ OpenClaw自動安裝程式是一個用於簡化環境檢查與安裝流程的 Wi
     - `重新檢查`
     - `安裝全部尚未有的環境套件`
     - `安裝 OpenClaw 4.1`
+    - `OpenClaw初始化`
+    - `打開交談視窗`
     - `設定預設 API Key`
     - `安裝最新版 OpenClaw` 或 `移除 OpenClaw`
     - `啟動 OpenClaw Gateway`
