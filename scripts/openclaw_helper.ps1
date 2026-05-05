@@ -1,7 +1,9 @@
 param(
     [Parameter(Mandatory = $true)]
     [ValidateSet('status', 'install-prerequisites', 'install-openclaw', 'install-openclaw-latest', 'uninstall-openclaw')]
-    [string]$Action
+    [string]$Action,
+
+    [string]$Version = '2026.4.1'
 )
 
 Set-StrictMode -Version Latest
@@ -9,8 +11,6 @@ $ErrorActionPreference = 'Stop'
 [Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $OutputEncoding = [Console]::OutputEncoding
-$OpenClawVersion = '2026.4.11'
-
 function Invoke-CommandAndCapture {
     param(
         [Parameter(Mandatory = $true)]
@@ -378,15 +378,20 @@ function Install-Prerequisites {
 }
 
 function Install-OpenClaw {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Version
+    )
+
     $npmPath = Resolve-NpmPath
     if (-not $npmPath) {
         throw 'npm was not found. Install Node.js first.'
     }
 
-    Write-Host "Installing OpenClaw version $OpenClawVersion..."
-    & $npmPath install -g "openclaw@$OpenClawVersion"
+    Write-Host "Installing OpenClaw version $Version..."
+    & $npmPath install -g "openclaw@$Version"
     if ($LASTEXITCODE -ne 0) {
-        throw "npm install -g openclaw@$OpenClawVersion failed."
+        throw "npm install -g openclaw@$Version failed."
     }
 }
 
@@ -424,7 +429,7 @@ switch ($Action) {
         Install-Prerequisites
     }
     'install-openclaw' {
-        Install-OpenClaw
+        Install-OpenClaw -Version $Version
     }
     'install-openclaw-latest' {
         Install-OpenClawLatest

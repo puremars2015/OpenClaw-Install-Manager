@@ -12,7 +12,7 @@
 OpenClaw自動安裝程式是一個用於簡化環境檢查與安裝流程的 Windows GUI 工具。它將介面收斂成兩個部分：
 
 - 檢查 PowerShell 7、Node.js、npm、Git、Python、OpenCode、OpenClaw 是否已安裝。
-- 安裝全部尚未有的環境套件，以及安裝指定版本的 OpenClaw 4.11。
+- 安裝全部尚未有的環境套件，以及安裝指定版本的 OpenClaw 4.1。
 - 安裝最新版 OpenClaw，或移除已安裝的 OpenClaw。
 - 設定預設 API Key，並切換預設模型供應商。
 - 啟動與停止由本工具建立的 OpenClaw Gateway 行程。
@@ -23,7 +23,7 @@ OpenClaw自動安裝程式是一個用於簡化環境檢查與安裝流程的 Wi
 - 環境檢查會顯示 PowerShell 7、Node.js、npm、Git、Python、OpenCode、OpenClaw 的安裝狀態、版本與路徑。
 - 「安裝全部尚未有的環境套件」會補齊 PowerShell 7、Node.js、npm、Git、Python、OpenCode。
 - OpenCode 透過 `npm install -g opencode-ai` 安裝，指令名稱為 `opencode`。
-- 「安裝 OpenClaw 4.11」會固定安裝 `openclaw@2026.4.11`。
+- 「安裝 OpenClaw 4.1」會固定安裝 `openclaw@2026.4.1`。
 - 「安裝最新版 OpenClaw」會執行 `npm install -g openclaw`。
 - 「移除 OpenClaw」會執行 `npm uninstall -g openclaw`。
 - 「設定預設 API Key」可選擇 `OpenRouter`、`OpenAI`、`Anthropic`、`MiniMax`，把 token 寫入 OpenClaw auth store，並切換到該供應商的預設模型。
@@ -32,7 +32,7 @@ OpenClaw自動安裝程式是一個用於簡化環境檢查與安裝流程的 Wi
 
 ## 已實作內容
 - `openclaw_manager.py`：以 `tkinter` 開發的 Windows GUI 工具。
-- `scripts/openclaw_helper.ps1`：負責檢查環境、安裝缺少的環境套件、安裝 OpenClaw 4.11。
+- `scripts/openclaw_helper.ps1`：負責檢查環境、安裝缺少的環境套件、安裝指定版本的 OpenClaw。
 - `run_openclaw_manager.ps1`：Windows 啟動器，會自動用 `py -3` 或 `python` 啟動 GUI。
 
 ## 工具功能
@@ -40,7 +40,7 @@ OpenClaw自動安裝程式是一個用於簡化環境檢查與安裝流程的 Wi
 - 使用 `winget` 補安裝缺少的 PowerShell 7、Node.js LTS、Git、Python 3.12。
 - 若缺少 `npm`，會透過安裝 Node.js LTS 一併補齊。
 - 使用 `npm install -g opencode-ai` 安裝 OpenCode。
-- 使用 `npm install -g openclaw@2026.4.11` 安裝 OpenClaw 4.11。
+- 使用 `npm install -g openclaw@2026.4.1` 安裝 OpenClaw 4.1。
 - 使用 `npm install -g openclaw` 安裝最新版 OpenClaw。
 - 使用 `npm uninstall -g openclaw` 移除已安裝的 OpenClaw。
 - 可透過 GUI 設定 OpenClaw 的預設 API Key 與模型供應商，支援 OpenRouter、OpenAI、Anthropic、MiniMax。
@@ -57,7 +57,7 @@ OpenClaw自動安裝程式是一個用於簡化環境檢查與安裝流程的 Wi
 3. 進入 GUI 後，建議依序操作：
     - `重新檢查`
     - `安裝全部尚未有的環境套件`
-    - `安裝 OpenClaw 4.11`
+    - `安裝 OpenClaw 4.1`
     - `設定預設 API Key`
     - `安裝最新版 OpenClaw` 或 `移除 OpenClaw`
     - `啟動 OpenClaw Gateway`

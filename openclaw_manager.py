@@ -95,7 +95,7 @@ class OpenClawManagerApp(tk.Tk):
 
         ttk.Button(action_frame, text="重新檢查", command=self.refresh_status).grid(row=0, column=0, sticky="ew")
         ttk.Button(action_frame, text="安裝全部尚未有的環境套件", command=self.install_prerequisites).grid(row=1, column=0, sticky="ew", pady=(10, 0))
-        ttk.Button(action_frame, text="安裝 OpenClaw 4.11", command=self.install_openclaw).grid(row=2, column=0, sticky="ew", pady=(10, 0))
+        ttk.Button(action_frame, text="安裝 OpenClaw 4.1", command=self.install_openclaw).grid(row=2, column=0, sticky="ew", pady=(10, 0))
         ttk.Button(action_frame, text="安裝最新版 OpenClaw", command=self.install_openclaw_latest).grid(row=3, column=0, sticky="ew", pady=(10, 0))
         ttk.Button(action_frame, text="移除 OpenClaw", command=self.uninstall_openclaw).grid(row=4, column=0, sticky="ew", pady=(10, 0))
         ttk.Button(action_frame, text="設定預設 API Key", command=self.open_api_key_settings).grid(row=5, column=0, sticky="ew", pady=(10, 0))
@@ -105,7 +105,7 @@ class OpenClawManagerApp(tk.Tk):
             text=(
                 "環境套件安裝會補齊 PowerShell 7、Node.js、npm、Git、Python、OpenCode。\n"
                 "OpenCode 透過 npm 全域安裝 opencode-ai。\n"
-                "OpenClaw 4.11 會固定安裝 openclaw@2026.4.11。\n"
+                "OpenClaw 4.1 會固定安裝 openclaw@2026.4.1。\n"
                 "最新版 OpenClaw 與移除 OpenClaw 也會透過 npm 全域執行。\n"
                 "設定預設 API Key 會寫入 OpenClaw auth store，並切換對應供應商的預設模型。"
             ),
@@ -252,7 +252,7 @@ class OpenClawManagerApp(tk.Tk):
         tool_info = status.get("tools", {}).get("openclaw") or {}
         openclaw_path = tool_info.get("path")
         if not tool_info.get("installed") or not openclaw_path:
-            raise RuntimeError("尚未找到 openclaw。請先安裝 OpenClaw 4.11 後再啟動 Gateway。")
+            raise RuntimeError("尚未找到 openclaw。請先安裝 OpenClaw 後再啟動 Gateway。")
         return str(openclaw_path)
 
     def _build_openclaw_cli_command(self, extra_args: list[str]) -> list[str]:
@@ -504,6 +504,7 @@ class OpenClawManagerApp(tk.Tk):
         self,
         *,
         action: str,
+        version: str | None = None,
         task_label: str,
         start_log: str,
         success_log: str,
@@ -511,7 +512,10 @@ class OpenClawManagerApp(tk.Tk):
     ) -> None:
         def work() -> None:
             self.log(start_log)
-            command = self._powershell_command(["-File", str(HELPER_SCRIPT), "-Action", action])
+            helper_args = ["-File", str(HELPER_SCRIPT), "-Action", action]
+            if version is not None:
+                helper_args.extend(["-Version", version])
+            command = self._powershell_command(helper_args)
             return_code = self._stream_process(command)
             if return_code != 0:
                 raise RuntimeError(error_message)
@@ -533,10 +537,11 @@ class OpenClawManagerApp(tk.Tk):
     def install_openclaw(self) -> None:
         self._run_helper_action_task(
             action="install-openclaw",
-            task_label="正在安裝 OpenClaw 4.11",
-            start_log="[執行] 安裝 OpenClaw 4.11",
-            success_log="[完成] OpenClaw 4.11 安裝完成",
-            error_message="安裝 OpenClaw 4.11 失敗，請查看日誌。",
+            version="2026.4.1",
+            task_label="正在安裝 OpenClaw 4.1",
+            start_log="[執行] 安裝 OpenClaw 4.1",
+            success_log="[完成] OpenClaw 4.1 安裝完成",
+            error_message="安裝 OpenClaw 4.1 失敗，請查看日誌。",
         )
 
     def install_openclaw_latest(self) -> None:
